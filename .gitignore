@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.log
+token_history.json
+history/*.json
+~/.token-monitor/
