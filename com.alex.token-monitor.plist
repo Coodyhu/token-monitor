@@ -30,7 +30,8 @@
     <key>StandardErrorPath</key>
     <string>/tmp/token-monitor.log</string>
 
+    <!-- 登录时运行一次（用于补发错过的报告） -->
     <key>RunAtLoad</key>
-    <false/>
+    <true/>
 </dict>
 </plist>

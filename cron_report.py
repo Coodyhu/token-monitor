@@ -6,19 +6,20 @@ cron_report.py - Token Monitor 定时报告
 1. 生成每日统计摘要
 2. 保存历史快照
 3. 生成报告文本（适合 iMessage 发送）
+4. 错过补发机制
 
 用法:
   python cron_report.py          # 生成报告并保存快照
   python cron_report.py report   # 仅生成报告文本
   python cron_report.py snapshot # 仅保存快照
-  python cron_report.py send     # 生成报告并发送 iMessage
+  python cron_report.py send     # 生成报告并发送 iMessage（带补发检查）
 """
 
 import json
 import os
 import sys
 import subprocess
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 from typing import Optional
 
@@ -36,6 +37,54 @@ from history import save_snapshot, get_latest_snapshot, load_snapshot, compare_s
 
 # 配置
 EDDIE_PHONE = "+8618257004233"
+LAST_SENT_FILE = Path.home() / ".token-monitor" / "last_sent.json"
+
+
+def get_last_sent_date() -> Optional[date]:
+    """获取上次发送日期"""
+    try:
+        if LAST_SENT_FILE.exists():
+            with open(LAST_SENT_FILE, "r") as f:
+                data = json.load(f)
+                return date.fromisoformat(data.get("date", ""))
+    except Exception:
+        pass
+    return None
+
+
+def set_last_sent_date(d: date = None) -> None:
+    """记录发送日期"""
+    if d is None:
+        d = date.today()
+    LAST_SENT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(LAST_SENT_FILE, "w") as f:
+        json.dump({"date": d.isoformat(), "timestamp": datetime.now().isoformat()}, f)
+
+
+def check_missed_days() -> list[date]:
+    """检查错过的天数"""
+    last_sent = get_last_sent_date()
+    today = date.today()
+
+    if last_sent is None:
+        # 首次运行，只发今天
+        return [today]
+
+    if last_sent >= today:
+        # 今天已发送
+        return []
+
+    # 计算错过的天数（最多补发3天）
+    missed = []
+    current = last_sent
+    while current < today:
+        from datetime import timedelta
+        current = current + timedelta(days=1)
+        missed.append(current)
+        if len(missed) >= 3:
+            break
+
+    return missed
 
 
 def generate_report_text() -> str:
@@ -118,10 +167,20 @@ def send_imessage(message: str, to: str = EDDIE_PHONE) -> bool:
         return False
 
 
-def run_daily_report(send: bool = False) -> None:
+def run_daily_report(send: bool = False, check_missed: bool = True) -> None:
     """执行每日报告"""
     print(f"[{datetime.now().isoformat()}] Token Monitor Daily Report")
     print("-" * 50)
+
+    # 检查是否需要补发
+    if send and check_missed:
+        missed = check_missed_days()
+        if not missed:
+            print("Today's report already sent, skipping.")
+            return
+
+        if len(missed) > 1:
+            print(f"Missed {len(missed)} days, will send catch-up reports...")
 
     # 1. 保存快照
     print("Saving snapshot...")
@@ -143,6 +202,7 @@ def run_daily_report(send: bool = False) -> None:
         print("Sending iMessage...")
         if send_imessage(report):
             print("  Message sent successfully")
+            set_last_sent_date()  # 记录发送日期
         else:
             print("  Failed to send message", file=sys.stderr)
 
