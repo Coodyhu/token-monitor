@@ -23,7 +23,28 @@ from pricing import estimate_cost, get_total_estimated_cost, format_cost, print_
 CLAUDE_STATS_PATH = Path.home() / ".claude" / "stats-cache.json"
 MOLTBOT_SESSIONS_PATH = Path.home() / ".clawdbot" / "agents" / "main" / "sessions" / "sessions.json"
 DMXAPI_BASE_URL = "https://www.dmxapi.cn"
-DMXAPI_KEY = "sk-FYgmDUWHFXTvx6pDXuw8bCR0G2Dn7YogZqk2HybghuUGOHJP"
+CONFIG_PATH = Path(__file__).parent / "config.json"
+
+
+def load_config() -> dict:
+    """加载配置文件"""
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("警告: config.json 不存在，请复制 config.example.json 并填入配置", file=sys.stderr)
+        return {}
+
+
+def get_dmxapi_key() -> str:
+    """获取 dmxapi key"""
+    # 优先从环境变量获取
+    key = os.environ.get("DMXAPI_KEY")
+    if key:
+        return key
+    # 从配置文件获取
+    config = load_config()
+    return config.get("dmxapi_key", "")
 
 
 def load_json(path: Path) -> dict | None:
@@ -38,9 +59,14 @@ def load_json(path: Path) -> dict | None:
 
 def get_dmxapi_usage() -> dict | None:
     """查询 dmxapi 总用量"""
+    api_key = get_dmxapi_key()
+    if not api_key:
+        print("警告: 未配置 dmxapi_key", file=sys.stderr)
+        return None
+
     url = f"{DMXAPI_BASE_URL}/v1/dashboard/billing/usage"
     req = urllib.request.Request(url)
-    req.add_header("Authorization", f"Bearer {DMXAPI_KEY}")
+    req.add_header("Authorization", f"Bearer {api_key}")
 
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:

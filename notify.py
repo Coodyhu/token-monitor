@@ -11,6 +11,7 @@ notify.py - Token Monitor iMessage 通知模块
 
 import json
 import subprocess
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -20,13 +21,23 @@ from token_monitor import (
     get_claude_code_stats,
     get_moltbot_stats,
     format_tokens,
+    load_config,
 )
 from pricing import get_total_estimated_cost, format_cost
 
 # 配置
-EDDIE_PHONE = "+8618257004233"
 NOTE_FOLDER = "家庭文件"
 HISTORY_FILE = Path(__file__).parent / "token_history.json"
+
+
+def get_notify_phone() -> str:
+    """获取通知电话号码"""
+    import os
+    phone = os.environ.get("NOTIFY_PHONE")
+    if phone:
+        return phone
+    config = load_config()
+    return config.get("notify_phone", "")
 
 
 def run_osascript(script: str) -> Optional[str]:
@@ -37,8 +48,13 @@ def run_osascript(script: str) -> Optional[str]:
     return p.stdout.strip()
 
 
-def send_imessage(message: str, to: str = EDDIE_PHONE) -> bool:
+def send_imessage(message: str, to: str = None) -> bool:
     """发送 iMessage"""
+    if to is None:
+        to = get_notify_phone()
+    if not to:
+        print("警告: 未配置 notify_phone", file=sys.stderr)
+        return False
     try:
         result = subprocess.run([
             "moltbot", "message", "send",

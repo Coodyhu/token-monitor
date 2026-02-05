@@ -1,0 +1,7 @@
+# Token Monitor 配置文件
+# 复制此文件为 config.json 并填入实际值
+
+{
+    "dmxapi_key": "your-dmxapi-key-here",
+    "notify_phone": "+86xxxxxxxxxxx"
+}

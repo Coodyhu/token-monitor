@@ -6,3 +6,4 @@ __pycache__/
 token_history.json
 history/*.json
 ~/.token-monitor/
+config.json

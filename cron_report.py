@@ -31,13 +31,22 @@ from token_monitor import (
     get_moltbot_stats,
     get_dmxapi_usage,
     format_tokens,
-    export_json
+    export_json,
+    load_config,
 )
 from history import save_snapshot, get_latest_snapshot, load_snapshot, compare_snapshots, list_snapshots
 
 # 配置
-EDDIE_PHONE = "+8618257004233"
 LAST_SENT_FILE = Path.home() / ".token-monitor" / "last_sent.json"
+
+
+def get_notify_phone() -> str:
+    """获取通知电话号码"""
+    phone = os.environ.get("NOTIFY_PHONE")
+    if phone:
+        return phone
+    config = load_config()
+    return config.get("notify_phone", "")
 
 
 def get_last_sent_date() -> Optional[date]:
@@ -152,8 +161,13 @@ def generate_report_text() -> str:
     return "\n".join(lines)
 
 
-def send_imessage(message: str, to: str = EDDIE_PHONE) -> bool:
+def send_imessage(message: str, to: str = None) -> bool:
     """发送 iMessage"""
+    if to is None:
+        to = get_notify_phone()
+    if not to:
+        print("警告: 未配置 notify_phone", file=sys.stderr)
+        return False
     try:
         result = subprocess.run([
             "moltbot", "message", "send",
