@@ -64,13 +64,15 @@ python3 token_monitor.py cost
 python3 token_monitor.py pricing
 
 # 历史记录
-python3 token_monitor.py snapshot  # 保存快照
-python3 token_monitor.py history   # 查看历史
-python3 token_monitor.py trend     # 趋势分析
+python3 history.py              # 查看历史 + 趋势
+python3 history.py history 7    # 最近7天历史
+python3 history.py trend        # 趋势分析
 
-# 通知
-python3 token_monitor.py notify         # 发送日报
-python3 token_monitor.py notify check   # 检查费用阈值
+# 定时报告
+python3 cron_report.py          # 生成报告并保存快照
+python3 cron_report.py report   # 仅生成报告文本
+python3 cron_report.py snapshot # 仅保存快照
+python3 cron_report.py send     # 生成报告并发送 iMessage
 
 # 导出 JSON
 python3 token_monitor.py json
