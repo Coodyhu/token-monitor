@@ -34,7 +34,7 @@ from token_monitor import (
     export_json,
     load_config,
 )
-from history import save_snapshot, get_latest_snapshot, load_snapshot, compare_snapshots, list_snapshots
+from history import save_snapshot, get_daily_summary
 
 # 配置
 LAST_SENT_FILE = Path.home() / ".token-monitor" / "last_sent.json"
@@ -139,24 +139,22 @@ def generate_report_text() -> str:
         lines.append("")
 
     # 与昨日对比
-    snapshots = list_snapshots(2)
-    if len(snapshots) >= 2:
-        today = snapshots[0]
-        yesterday = snapshots[1]
-        diff = compare_snapshots(yesterday, today)
-        changes = diff.get("changes", {})
+    daily_summary = get_daily_summary(2)
+    if len(daily_summary) >= 2:
+        today_data = daily_summary[0]
+        yesterday_data = daily_summary[1]
 
-        if changes:
+        cost_diff = (today_data.get("total_cost") or 0) - (yesterday_data.get("total_cost") or 0)
+        input_diff = (today_data.get("total_input") or 0) - (yesterday_data.get("total_input") or 0)
+
+        if cost_diff != 0 or input_diff != 0:
             lines.append("[vs Yesterday]")
-            dmx_diff = changes.get("dmxapi_usage", 0)
-            if dmx_diff != 0:
-                lines.append(f"dmxapi: +CNY {dmx_diff / 10000:.2f}")
-            session_diff = changes.get("claude_sessions", 0)
-            if session_diff != 0:
-                lines.append(f"Claude Sessions: +{session_diff}")
-            msg_diff = changes.get("claude_messages", 0)
-            if msg_diff != 0:
-                lines.append(f"Claude Messages: +{msg_diff}")
+            if cost_diff != 0:
+                sign = "+" if cost_diff > 0 else ""
+                lines.append(f"Cost: {sign}${cost_diff:.2f}")
+            if input_diff != 0:
+                sign = "+" if input_diff > 0 else ""
+                lines.append(f"Input: {sign}{format_tokens(input_diff)}")
 
     return "\n".join(lines)
 
@@ -199,8 +197,10 @@ def run_daily_report(send: bool = False, check_missed: bool = True) -> None:
     # 1. 保存快照
     print("Saving snapshot...")
     try:
-        path = save_snapshot()
-        print(f"  Snapshot saved: {path}")
+        claude_stats = get_claude_code_stats()
+        moltbot_stats = get_moltbot_stats()
+        count = save_snapshot(claude_stats, moltbot_stats)
+        print(f"  Snapshot saved: {count} records")
     except Exception as e:
         print(f"  Error saving snapshot: {e}", file=sys.stderr)
 
@@ -233,8 +233,10 @@ def main():
 
     elif cmd == "snapshot":
         # 仅保存快照
-        path = save_snapshot()
-        print(f"Snapshot saved: {path}")
+        claude_stats = get_claude_code_stats()
+        moltbot_stats = get_moltbot_stats()
+        count = save_snapshot(claude_stats, moltbot_stats)
+        print(f"Snapshot saved: {count} records")
 
     elif cmd == "send":
         # 生成报告并发送
